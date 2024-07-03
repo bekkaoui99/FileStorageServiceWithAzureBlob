@@ -1,65 +1,52 @@
 package com.learning.filestorageazureblob.controller;
 
-import com.azure.storage.blob.BlobClient;
-import com.azure.storage.blob.BlobClientBuilder;
-import com.azure.storage.blob.models.BlobHttpHeaders;
+
+import com.learning.filestorageazureblob.service.impl.FileStorageServiceImpl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import java.io.InputStream;
 
 @RestController
-@RequestMapping("/test/images")
+@RequestMapping("/images")
 public class FileStorageController {
 
+    private final FileStorageServiceImpl fileStorageService;
 
-    private final BlobClientBuilder blobClientBuilder;
-
-    public FileStorageController(BlobClientBuilder blobClientBuilder) {
-        this.blobClientBuilder = blobClientBuilder;
+    public FileStorageController(FileStorageServiceImpl fileStorageService) {
+        this.fileStorageService = fileStorageService;
     }
-
     @PostMapping("/upload")
-    public ResponseEntity<String> uploadImage(@RequestParam("file") MultipartFile file) throws IOException {
-
-        if (file.isEmpty()) {
-            return ResponseEntity.badRequest().body("File is empty");
-        }
-
-        String fileName = StringUtils.cleanPath(file.getOriginalFilename());
-        BlobClient blobClient = blobClientBuilder.blobName(fileName).buildClient();
-        blobClient.upload(file.getInputStream(), file.getSize(), true);
-
-        BlobHttpHeaders headers = new BlobHttpHeaders()
-                .setContentType(file.getContentType());
-        blobClient.setHttpHeaders(headers);
-
-        return ResponseEntity.ok("File uploaded successfully: " + fileName);
+    public ResponseEntity<String> uploadFile(@RequestParam("file") MultipartFile file) throws IOException {
+        String fileUrl = fileStorageService.uploadFile(file);
+        return ResponseEntity.ok("File uploaded successfully. URL: " + fileUrl);
     }
 
-    @GetMapping("/download/{fileName}")
-    public ResponseEntity<byte[]> downloadImage(@PathVariable String fileName) throws IOException {
-        BlobClient blobClient = blobClientBuilder.blobName(fileName).buildClient();
+    @PutMapping("/update/{blobName}")
+    public ResponseEntity<String> updateFile(@PathVariable String blobName, @RequestParam("file") MultipartFile file) throws IOException {
+        String fileUrl = fileStorageService.updateFile(blobName, file);
+        return ResponseEntity.ok("File updated successfully. URL: " + fileUrl);
+    }
 
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        blobClient.download(outputStream);
-
-        String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8.toString());
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType(blobClient.getProperties().getContentType()));
-        headers.setContentDispositionFormData("attachment", encodedFileName);
+    @GetMapping("/download/{blobName}")
+    public ResponseEntity<byte[]> downloadFile(@PathVariable String blobName) throws IOException {
+        InputStream inputStream = fileStorageService.downloadFile(blobName);
+        byte[] content = inputStream.readAllBytes();
 
         return ResponseEntity.ok()
-                .headers(headers)
-                .body(outputStream.toByteArray());
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + blobName + "\"")
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(content);
+    }
+
+    @DeleteMapping("/delete/{blobName}")
+    public ResponseEntity<String> deleteFile(@PathVariable String blobName) {
+        fileStorageService.deleteFile(blobName);
+        return ResponseEntity.ok("File deleted successfully");
     }
 
 }

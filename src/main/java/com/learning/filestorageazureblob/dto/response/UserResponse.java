@@ -1,15 +1,14 @@
-package com.learning.filestorageazureblob.dto.request;
+package com.learning.filestorageazureblob.dto.response;
 
 import lombok.Builder;
 import org.springframework.web.multipart.MultipartFile;
 
 @Builder
-public record UserRequest(
+public record UserResponse(
         String firstName,
         String lastName,
         String userName,
         String email,
-        String password,
-        MultipartFile file
+        String imageUrl
 ) {
 }
